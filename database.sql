@@ -59,19 +59,7 @@ CREATE TABLE IF NOT EXISTS affectations_eleves (
     UNIQUE KEY unique_eleve_annee (id_eleve, annee_scolaire)
 ) ENGINE=InnoDB;
 
--- Table des emplois du temps
-CREATE TABLE IF NOT EXISTS emplois_du_temps (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    id_classe INT NOT NULL,
-    id_matiere INT NOT NULL,
-    jour ENUM('Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi') NOT NULL,
-    heure_debut TIME NOT NULL,
-    heure_fin TIME NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_classe) REFERENCES classes(id) ON DELETE CASCADE,
-    FOREIGN KEY (id_matiere) REFERENCES matieres(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+
 
 -- Table des signatures de présence
 CREATE TABLE IF NOT EXISTS signatures (

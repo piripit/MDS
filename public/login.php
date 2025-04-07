@@ -4,25 +4,6 @@ require_once '../classes/Auth.php';
 
 session_start();
 
-// Rediriger si déjà connecté
-if (Auth::isLoggedIn()) {
-    $role = $_SESSION['user']['role'];
-    switch ($role) {
-        case 'admin':
-            header('Location: admin/dashboard.php');
-            break;
-        case 'enseignant':
-            header('Location: enseignant/dashboard.php');
-            break;
-        case 'eleve':
-            header('Location: eleve/dashboard.php');
-            break;
-        default:
-            header('Location: index.php');
-    }
-    exit();
-}
-
 $auth = new Auth($pdo);
 $error = '';
 
@@ -30,28 +11,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
 
-    if (empty($email) || empty($password)) {
-        $error = "Veuillez remplir tous les champs";
-    } else {
-        if ($auth->login($email, $password)) {
-            $role = $_SESSION['user']['role'];
-            switch ($role) {
+    try {
+        $user = $auth->login($email, $password);
+        if ($user) {
+            // Stocker les informations de l'utilisateur dans la session
+            $_SESSION['user'] = $user;
+
+            // Redirection selon le rôle
+            switch ($user['role']) {
                 case 'admin':
                     header('Location: admin/dashboard.php');
-                    break;
+                    exit;
                 case 'enseignant':
                     header('Location: enseignant/dashboard.php');
-                    break;
+                    exit;
                 case 'eleve':
                     header('Location: eleve/dashboard.php');
-                    break;
+                    exit;
                 default:
-                    header('Location: index.php');
+                    $error = "Rôle non reconnu";
             }
-            exit();
         } else {
             $error = "Email ou mot de passe incorrect";
         }
+    } catch (Exception $e) {
+        $error = $e->getMessage();
+    }
+}
+
+// Si l'utilisateur est déjà connecté, le rediriger
+if (isset($_SESSION['user'])) {
+    $user = $_SESSION['user'];
+    switch ($user['role']) {
+        case 'admin':
+            header('Location: admin/dashboard.php');
+            exit;
+        case 'enseignant':
+            header('Location: enseignant/dashboard.php');
+            exit;
+        case 'eleve':
+            header('Location: eleve/dashboard.php');
+            exit;
     }
 }
 ?>
@@ -123,17 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
 
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="remember" name="remember">
-                            <label class="form-check-label" for="remember">Se souvenir de moi</label>
-                        </div>
-
                         <button type="submit" class="btn btn-primary">Se connecter</button>
                     </form>
-
-                    <div class="mt-3 text-center">
-                        <a href="forgot-password.php">Mot de passe oublié ?</a>
-                    </div>
                 </div>
             </div>
         </div>

@@ -13,77 +13,54 @@ if (!Auth::isLoggedIn() || $_SESSION['user']['role'] !== 'admin') {
 
 $emploiDuTemps = new EmploiDuTemps($pdo);
 
-// Récupération des classes
-try {
-    $stmt = $pdo->query("
-        SELECT c.*,
-               CASE 
-                   WHEN c.niveau = 'BTS' THEN CONCAT(c.nom, ' - ', c.`option`)
-                   ELSE c.nom 
-               END as nom_complet
-        FROM classes c
-        ORDER BY c.niveau, c.nom, c.`option`
-    ");
-    $classes = $stmt->fetchAll();
-
-    // Débogage
-    error_log("Classes trouvées : " . print_r($classes, true));
-} catch (Exception $e) {
-    error_log("Erreur lors de la récupération des classes: " . $e->getMessage());
-    $classes = [];
-}
-
-// Récupération des matières
-try {
-    $stmt = $pdo->query("SELECT * FROM matieres ORDER BY nom");
-    $matieres = $stmt->fetchAll();
-} catch (Exception $e) {
-    error_log("Erreur lors de la récupération des matières: " . $e->getMessage());
-    $matieres = [];
-}
-
-// Récupération des enseignants
-try {
-    $stmt = $pdo->query("SELECT * FROM utilisateurs WHERE role = 'enseignant' ORDER BY nom, prenom");
-    $enseignants = $stmt->fetchAll();
-} catch (Exception $e) {
-    error_log("Erreur lors de la récupération des enseignants: " . $e->getMessage());
-    $enseignants = [];
-}
-
-// Traitement du formulaire d'ajout/modification
+// Traitement du formulaire
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    try {
-        if (isset($_POST['action'])) {
-            if ($_POST['action'] === 'add') {
-                $emploiDuTemps->ajouterCours(
-                    $_POST['classe'],
-                    $_POST['matiere'],
-                    $_POST['enseignant'],
-                    $_POST['jour'],
-                    $_POST['heure_debut'],
-                    $_POST['heure_fin']
-                );
-                $_SESSION['success'] = "Cours ajouté avec succès.";
-            } elseif ($_POST['action'] === 'edit' && isset($_POST['id'])) {
-                $emploiDuTemps->modifierCours(
-                    $_POST['id'],
-                    $_POST['classe'],
-                    $_POST['matiere'],
-                    $_POST['enseignant'],
-                    $_POST['jour'],
-                    $_POST['heure_debut'],
-                    $_POST['heure_fin']
-                );
-                $_SESSION['success'] = "Cours modifié avec succès.";
+    if (isset($_POST['action'])) {
+        try {
+            switch ($_POST['action']) {
+                case 'add':
+                    $emploiDuTemps->ajouterCours(
+                        $_POST['id_classe'],
+                        $_POST['id_matiere'],
+                        $_POST['id_enseignant'],
+                        $_POST['jour'],
+                        $_POST['heure_debut'],
+                        $_POST['heure_fin']
+                    );
+                    $_SESSION['success'] = "Le cours a été ajouté avec succès.";
+                    break;
+
+                case 'edit':
+                    $emploiDuTemps->modifierCours(
+                        $_POST['id'],
+                        $_POST['id_classe'],
+                        $_POST['id_matiere'],
+                        $_POST['id_enseignant'],
+                        $_POST['jour'],
+                        $_POST['heure_debut'],
+                        $_POST['heure_fin']
+                    );
+                    $_SESSION['success'] = "Le cours a été modifié avec succès.";
+                    break;
+
+                case 'delete':
+                    $emploiDuTemps->supprimerCours($_POST['id']);
+                    $_SESSION['success'] = "Le cours a été supprimé avec succès.";
+                    break;
             }
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur : " . $e->getMessage();
         }
-    } catch (Exception $e) {
-        $_SESSION['error'] = "Erreur lors de l'opération: " . $e->getMessage();
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit();
     }
-    header('Location: emploi_du_temps.php');
-    exit();
 }
+
+// Récupération des données
+$classes = $emploiDuTemps->getClasses();
+$matieres = $emploiDuTemps->getMatieres();
+$enseignants = $emploiDuTemps->getEnseignants();
+$cours = $emploiDuTemps->getCours();
 ?>
 
 <!DOCTYPE html>
@@ -92,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion de l'emploi du temps - Administration</title>
+    <title>Gestion de l'emploi du temps</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
 </head>
@@ -157,61 +134,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <!-- Formulaire d'ajout de cours -->
+        <!-- Formulaire d'ajout/modification -->
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="card-title mb-0">Ajouter un cours</h5>
+                <h5 class="card-title mb-0"><?php echo isset($_GET['edit']) ? 'Modifier' : 'Ajouter'; ?> un cours</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="" id="coursForm">
-                    <input type="hidden" name="action" value="add">
+                <form method="POST" action="">
+                    <input type="hidden" name="action" value="<?php echo isset($_GET['edit']) ? 'edit' : 'add'; ?>">
+                    <?php if (isset($_GET['edit'])): ?>
+                        <input type="hidden" name="id" value="<?php echo $_GET['edit']; ?>">
+                    <?php endif; ?>
+
                     <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label for="classe" class="form-label">Classe</label>
-                            <select class="form-select" id="classe" name="classe" required>
+                        <div class="col-md-3 mb-3">
+                            <label for="id_classe" class="form-label">Classe</label>
+                            <select class="form-select" id="id_classe" name="id_classe" required>
                                 <option value="">Sélectionnez une classe</option>
                                 <?php foreach ($classes as $classe): ?>
                                     <option value="<?php echo $classe['id']; ?>">
-                                        <?php echo htmlspecialchars($classe['nom_complet']); ?>
+                                        <?php
+                                        echo htmlspecialchars($classe['niveau'] . ' ' . $classe['nom']);
+                                        if (!empty($classe['option'])) {
+                                            echo ' - ' . htmlspecialchars($classe['option']);
+                                        }
+                                        ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="matiere" class="form-label">Matière</label>
-                            <select class="form-select" id="matiere" name="matiere" required>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="id_matiere" class="form-label">Matière</label>
+                            <select class="form-select" id="id_matiere" name="id_matiere" required>
                                 <option value="">Sélectionnez une matière</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="enseignant" class="form-label">Enseignant</label>
-                            <select class="form-select" id="enseignant" name="enseignant" required>
+
+                        <div class="col-md-3 mb-3">
+                            <label for="id_enseignant" class="form-label">Enseignant</label>
+                            <select class="form-select" id="id_enseignant" name="id_enseignant" required>
                                 <option value="">Sélectionnez un enseignant</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="row">
+
                         <div class="col-md-3 mb-3">
                             <label for="jour" class="form-label">Jour</label>
                             <select class="form-select" id="jour" name="jour" required>
+                                <option value="">Sélectionnez un jour</option>
                                 <option value="1">Lundi</option>
                                 <option value="2">Mardi</option>
                                 <option value="3">Mercredi</option>
                                 <option value="4">Jeudi</option>
                                 <option value="5">Vendredi</option>
-                                <option value="6">Samedi</option>
                             </select>
                         </div>
+
                         <div class="col-md-3 mb-3">
                             <label for="heure_debut" class="form-label">Heure de début</label>
-                            <input type="time" class="form-control" id="heure_debut" name="heure_debut" required>
+                            <select class="form-select" id="heure_debut" name="heure_debut" required>
+                                <option value="">Sélectionnez l'heure</option>
+                                <?php
+                                for ($h = 8; $h <= 18; $h++) {
+                                    for ($m = 0; $m < 60; $m += 15) {
+                                        $heure = sprintf("%02d:%02d", $h, $m);
+                                        echo "<option value='$heure'>$heure</option>";
+                                    }
+                                }
+                                ?>
+                            </select>
                         </div>
+
                         <div class="col-md-3 mb-3">
                             <label for="heure_fin" class="form-label">Heure de fin</label>
-                            <input type="time" class="form-control" id="heure_fin" name="heure_fin" required>
+                            <select class="form-select" id="heure_fin" name="heure_fin" required>
+                                <option value="">Sélectionnez l'heure</option>
+                                <?php
+                                for ($h = 8; $h <= 18; $h++) {
+                                    for ($m = 0; $m < 60; $m += 15) {
+                                        $heure = sprintf("%02d:%02d", $h, $m);
+                                        echo "<option value='$heure'>$heure</option>";
+                                    }
+                                }
+                                ?>
+                            </select>
                         </div>
+
                         <div class="col-md-3 mb-3 d-flex align-items-end">
-                            <button type="submit" class="btn btn-primary w-100">Ajouter le cours</button>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <?php echo isset($_GET['edit']) ? 'Modifier' : 'Ajouter'; ?> le cours
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -221,165 +233,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Liste des cours -->
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">Liste des cours</h5>
+                <h5 class="card-title mb-0">Emploi du temps</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
                             <tr>
+                                <th>Jour</th>
+                                <th>Heure</th>
                                 <th>Classe</th>
                                 <th>Matière</th>
                                 <th>Enseignant</th>
-                                <th>Jour</th>
-                                <th>Heures</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php
-                            try {
-                                $cours = $emploiDuTemps->getCours();
-                                foreach ($cours as $cours):
-                                    $jour = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][$cours['jour']];
-                            ?>
-                                    <tr>
-                                        <td>
-                                            <?php
-                                            if ($cours['classe_niveau'] === 'BTS') {
-                                                echo htmlspecialchars($cours['classe_nom'] . ' - ' . $cours['classe_option']);
-                                            } else {
-                                                echo htmlspecialchars($cours['classe_nom']);
-                                            }
-                                            ?>
-                                        </td>
-                                        <td><?php echo htmlspecialchars($cours['matiere_nom']); ?></td>
-                                        <td><?php echo htmlspecialchars($cours['enseignant_nom']); ?></td>
-                                        <td><?php echo $jour; ?></td>
-                                        <td><?php echo $cours['heure_debut'] . ' - ' . $cours['heure_fin']; ?></td>
-                                        <td>
-                                            <button type="button" class="btn btn-sm btn-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editModal<?php echo $cours['id']; ?>">
-                                                Modifier
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-danger"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#deleteModal<?php echo $cours['id']; ?>">
+                            <?php foreach ($cours as $c): ?>
+                                <tr>
+                                    <td><?php echo ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'][$c['jour']]; ?></td>
+                                    <td><?php echo substr($c['heure_debut'], 0, 5) . ' - ' . substr($c['heure_fin'], 0, 5); ?></td>
+                                    <td>
+                                        <?php
+                                        echo htmlspecialchars($c['classe_nom']);
+                                        if (!empty($c['classe_option'])) {
+                                            echo ' - ' . htmlspecialchars($c['classe_option']);
+                                        }
+                                        ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($c['matiere_nom']); ?></td>
+                                    <td><?php echo htmlspecialchars($c['enseignant_nom'] . ' ' . $c['enseignant_prenom']); ?></td>
+                                    <td>
+                                        <a href="?edit=<?php echo $c['id']; ?>" class="btn btn-sm btn-primary">Modifier</a>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="action" value="delete">
+                                            <input type="hidden" name="id" value="<?php echo $c['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-danger"
+                                                onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce cours ?');">
                                                 Supprimer
                                             </button>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Modal de modification -->
-                                    <div class="modal fade" id="editModal<?php echo $cours['id']; ?>" tabindex="-1">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Modifier le cours</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-                                                <form method="POST" action="">
-                                                    <div class="modal-body">
-                                                        <input type="hidden" name="action" value="edit">
-                                                        <input type="hidden" name="id" value="<?php echo $cours['id']; ?>">
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_classe<?php echo $cours['id']; ?>" class="form-label">Classe</label>
-                                                            <select class="form-select" id="edit_classe<?php echo $cours['id']; ?>" name="classe" required>
-                                                                <?php foreach ($classes as $classe): ?>
-                                                                    <option value="<?php echo $classe['id']; ?>"
-                                                                        <?php echo $classe['id'] == $cours['id_classe'] ? 'selected' : ''; ?>>
-                                                                        <?php echo htmlspecialchars($classe['nom_complet']); ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_matiere<?php echo $cours['id']; ?>" class="form-label">Matière</label>
-                                                            <select class="form-select" id="edit_matiere<?php echo $cours['id']; ?>" name="matiere" required>
-                                                                <?php foreach ($matieres as $matiere): ?>
-                                                                    <option value="<?php echo $matiere['id']; ?>"
-                                                                        <?php echo $matiere['id'] == $cours['id_matiere'] ? 'selected' : ''; ?>>
-                                                                        <?php echo htmlspecialchars($matiere['nom']); ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_enseignant<?php echo $cours['id']; ?>" class="form-label">Enseignant</label>
-                                                            <select class="form-select" id="edit_enseignant<?php echo $cours['id']; ?>" name="enseignant" required>
-                                                                <?php foreach ($enseignants as $enseignant): ?>
-                                                                    <option value="<?php echo $enseignant['id']; ?>"
-                                                                        <?php echo $enseignant['id'] == $cours['id_enseignant'] ? 'selected' : ''; ?>>
-                                                                        <?php echo htmlspecialchars($enseignant['prenom'] . ' ' . $enseignant['nom']); ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_jour<?php echo $cours['id']; ?>" class="form-label">Jour</label>
-                                                            <select class="form-select" id="edit_jour<?php echo $cours['id']; ?>" name="jour" required>
-                                                                <?php for ($i = 1; $i <= 6; $i++): ?>
-                                                                    <option value="<?php echo $i; ?>"
-                                                                        <?php echo $i == $cours['jour'] ? 'selected' : ''; ?>>
-                                                                        <?php echo ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][$i]; ?>
-                                                                    </option>
-                                                                <?php endfor; ?>
-                                                            </select>
-                                                        </div>
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_heure_debut<?php echo $cours['id']; ?>" class="form-label">Heure de début</label>
-                                                            <input type="time" class="form-control" id="edit_heure_debut<?php echo $cours['id']; ?>"
-                                                                name="heure_debut" value="<?php echo $cours['heure_debut']; ?>" required>
-                                                        </div>
-
-                                                        <div class="mb-3">
-                                                            <label for="edit_heure_fin<?php echo $cours['id']; ?>" class="form-label">Heure de fin</label>
-                                                            <input type="time" class="form-control" id="edit_heure_fin<?php echo $cours['id']; ?>"
-                                                                name="heure_fin" value="<?php echo $cours['heure_fin']; ?>" required>
-                                                        </div>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                                                        <button type="submit" class="btn btn-primary">Enregistrer</button>
-                                                    </div>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Modal de suppression -->
-                                    <div class="modal fade" id="deleteModal<?php echo $cours['id']; ?>" tabindex="-1">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Confirmer la suppression</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <p>Êtes-vous sûr de vouloir supprimer ce cours ?</p>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <form method="POST" action="">
-                                                        <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="id" value="<?php echo $cours['id']; ?>">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                                                        <button type="submit" class="btn btn-danger">Supprimer</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                            <?php endforeach;
-                            } catch (Exception $e) {
-                                error_log("Erreur lors de la récupération des cours: " . $e->getMessage());
-                            }
-                            ?>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
@@ -390,51 +286,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const classeSelect = document.getElementById('classe');
-            const matiereSelect = document.getElementById('matiere');
-            const enseignantSelect = document.getElementById('enseignant');
+            // Validation des heures
+            const heureDebut = document.getElementById('heure_debut');
+            const heureFin = document.getElementById('heure_fin');
 
-            // Fonction pour charger toutes les matières
-            function loadMatieres() {
-                fetch('get_matieres.php')
-                    .then(response => response.json())
-                    .then(data => {
-                        matiereSelect.innerHTML = '<option value="">Sélectionnez une matière</option>';
-                        data.forEach(matiere => {
-                            const option = document.createElement('option');
-                            option.value = matiere.id;
-                            option.textContent = matiere.nom;
-                            matiereSelect.appendChild(option);
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Erreur lors du chargement des matières:', error);
-                        matiereSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            heureDebut.addEventListener('change', function() {
+                const debutValue = this.value;
+                if (debutValue) {
+                    // Désactiver les heures antérieures à l'heure de début
+                    Array.from(heureFin.options).forEach(option => {
+                        option.disabled = option.value && option.value <= debutValue;
                     });
-            }
+                }
+            });
 
-            // Fonction pour charger tous les enseignants
-            function loadEnseignants() {
-                fetch('get_enseignants.php')
-                    .then(response => response.json())
-                    .then(data => {
-                        enseignantSelect.innerHTML = '<option value="">Sélectionnez un enseignant</option>';
-                        data.forEach(enseignant => {
-                            const option = document.createElement('option');
-                            option.value = enseignant.id;
-                            option.textContent = enseignant.prenom + ' ' + enseignant.nom;
-                            enseignantSelect.appendChild(option);
+            heureFin.addEventListener('change', function() {
+                const finValue = this.value;
+                const debutValue = heureDebut.value;
+                if (finValue && debutValue && finValue <= debutValue) {
+                    alert('L\'heure de fin doit être après l\'heure de début');
+                    this.value = '';
+                }
+            });
+
+            // Chargement des matières en fonction de la classe
+            document.getElementById('id_classe').addEventListener('change', function() {
+                const classeId = this.value;
+                const matiereSelect = document.getElementById('id_matiere');
+                const enseignantSelect = document.getElementById('id_enseignant');
+
+                // Réinitialiser les sélecteurs
+                matiereSelect.innerHTML = '<option value="">Sélectionnez une matière</option>';
+                enseignantSelect.innerHTML = '<option value="">Sélectionnez un enseignant</option>';
+
+                if (classeId) {
+                    fetch(`get_matieres.php?classe_id=${classeId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erreur lors du chargement des matières');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                            if (Array.isArray(data.matieres)) {
+                                data.matieres.forEach(matiere => {
+                                    const option = document.createElement('option');
+                                    option.value = matiere.id;
+                                    option.textContent = matiere.nom;
+                                    matiereSelect.appendChild(option);
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur:', error);
+                            alert('Erreur lors du chargement des matières: ' + error.message);
                         });
-                    })
-                    .catch(error => {
-                        console.error('Erreur lors du chargement des enseignants:', error);
-                        enseignantSelect.innerHTML = '<option value="">Erreur de chargement</option>';
-                    });
-            }
+                }
+            });
 
-            // Charger les matières et les enseignants au démarrage
-            loadMatieres();
-            loadEnseignants();
+            // Chargement des enseignants en fonction de la matière
+            document.getElementById('id_matiere').addEventListener('change', function() {
+                const matiereId = this.value;
+                const enseignantSelect = document.getElementById('id_enseignant');
+
+                enseignantSelect.innerHTML = '<option value="">Sélectionnez un enseignant</option>';
+
+                if (matiereId) {
+                    fetch(`get_enseignants.php?matiere_id=${matiereId}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Erreur lors du chargement des enseignants');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                            if (Array.isArray(data)) {
+                                data.forEach(enseignant => {
+                                    const option = document.createElement('option');
+                                    option.value = enseignant.id;
+                                    option.textContent = enseignant.nom + ' ' + enseignant.prenom;
+                                    enseignantSelect.appendChild(option);
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur:', error);
+                            alert('Erreur lors du chargement des enseignants: ' + error.message);
+                        });
+                }
+            });
         });
     </script>
 </body>

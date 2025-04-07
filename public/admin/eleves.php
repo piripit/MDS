@@ -118,7 +118,11 @@ try {
     $eleves = $stmt->fetchAll();
 
     // Récupération des classes pour le formulaire
-    $stmt = $pdo->prepare("SELECT * FROM classes ORDER BY niveau, nom");
+    $stmt = $pdo->prepare("
+        SELECT id, nom, niveau
+        FROM classes 
+        ORDER BY nom, niveau
+    ");
     $stmt->execute();
     $classes = $stmt->fetchAll();
 } catch (Exception $e) {
@@ -288,7 +292,7 @@ try {
         </div>
     </div>
 
-    <!-- Modal d'ajout -->
+    <!-- Modal pour ajouter/modifier un élève -->
     <div class="modal fade" id="modalEleve" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -296,45 +300,44 @@ try {
                     <h5 class="modal-title">Ajouter un élève</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
-                    <div class="modal-body">
+                <div class="modal-body">
+                    <form method="POST">
+                        <input type="hidden" name="id" id="eleve_id">
                         <div class="mb-3">
                             <label for="nom" class="form-label">Nom</label>
                             <input type="text" class="form-control" id="nom" name="nom" required>
                         </div>
-
                         <div class="mb-3">
                             <label for="prenom" class="form-label">Prénom</label>
                             <input type="text" class="form-control" id="prenom" name="prenom" required>
                         </div>
-
                         <div class="mb-3">
                             <label for="email" class="form-label">Email</label>
                             <input type="email" class="form-control" id="email" name="email" required>
                         </div>
-
                         <div class="mb-3">
                             <label for="password" class="form-label">Mot de passe</label>
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
-
                         <div class="mb-3">
                             <label for="classe" class="form-label">Classe</label>
-                            <select class="form-select" id="classe" name="classe" required>
+                            <select class="form-control" id="classe" name="classe" required>
                                 <option value="">Sélectionnez une classe</option>
                                 <?php foreach ($classes as $classe): ?>
                                     <option value="<?php echo $classe['id']; ?>">
-                                        <?php echo htmlspecialchars($classe['nom']); ?>
+                                        <?php
+                                        echo htmlspecialchars($classe['niveau'] . ' ' . $classe['nom']);
+                                        if (!empty($classe['option'])) {
+                                            echo ' - ' . htmlspecialchars($classe['option']);
+                                        }
+                                        ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                        <button type="submit" class="btn btn-primary">Ajouter</button>
-                    </div>
-                </form>
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>

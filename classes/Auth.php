@@ -28,14 +28,13 @@ class Auth
 
             if ($user && password_verify($password, $user['password'])) {
                 unset($user['password']); // Ne pas stocker le mot de passe en session
-                $_SESSION['user'] = $user;
-                return true;
+                return $user; // Retourner les informations de l'utilisateur
             }
 
-            return false;
+            return null; // Retourner null si l'authentification échoue
         } catch (Exception $e) {
             error_log("Erreur lors de la connexion: " . $e->getMessage());
-            return false;
+            return null;
         }
     }
 

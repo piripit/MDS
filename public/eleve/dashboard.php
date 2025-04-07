@@ -87,7 +87,12 @@ $signaturesEleve = $signature->getSignaturesByUser($user['id']);
 
         <?php if ($classe): ?>
             <div class="alert alert-info">
-                Classe : <?php echo htmlspecialchars($classe['nom']); ?>
+                <h4>Votre classe : <?php echo htmlspecialchars($classe['nom']); ?></h4>
+                <p class="mb-0">Niveau : <?php echo htmlspecialchars($classe['niveau']); ?></p>
+            </div>
+        <?php else: ?>
+            <div class="alert alert-warning">
+                Vous n'êtes pas encore affecté à une classe pour cette année scolaire.
             </div>
         <?php endif; ?>
 
