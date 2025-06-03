@@ -110,3 +110,33 @@ ADD CONSTRAINT max_matieres_enseignant
 CHECK (
     (SELECT COUNT(*) FROM matieres_enseignants WHERE id_enseignant = matieres_enseignants.id_enseignant) <= 2
 ); 
+-- Active: 1742056345167@@127.0.0.1@3306@gestion_classes
+-- Script pour créer la table des sessions de signature
+-- À exécuter dans phpMyAdmin ou votre interface MySQL
+
+CREATE TABLE IF NOT EXISTS sessions_signature (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    id_matiere INT NOT NULL,
+    id_enseignant INT NOT NULL,
+    id_classe INT NOT NULL,
+    date_session DATE NOT NULL,
+    heure_debut TIME NOT NULL,
+    heure_fin TIME NULL,
+    statut ENUM('active', 'fermee') DEFAULT 'active',
+    duree_minutes INT DEFAULT 15,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_matiere) REFERENCES matieres (id) ON DELETE CASCADE,
+    FOREIGN KEY (id_enseignant) REFERENCES utilisateurs (id) ON DELETE CASCADE,
+    FOREIGN KEY (id_classe) REFERENCES classes (id) ON DELETE CASCADE,
+    UNIQUE KEY unique_session (
+        id_matiere,
+        id_enseignant,
+        date_session
+    )
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- Index pour optimiser les requêtes
+CREATE INDEX idx_sessions_actives ON sessions_signature (statut, date_session);
+
+CREATE INDEX idx_sessions_matiere_date ON sessions_signature (id_matiere, date_session);

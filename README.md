@@ -2,7 +2,10 @@
 
 ## Description
 
-MDS est une application web de gestion des signatures et des présences dans un établissement scolaire. Elle permet aux enseignants de gérer les signatures des élèves, aux élèves de signer leur présence, et aux administrateurs de gérer l'ensemble du système.
+Bienvenu Formation est une application web de gestion des signatures et des présences dans un établissement scolaire. 
+Elle permet aux enseignants de gérer les signatures des élèves, 
+aux élèves de signer leur présence, 
+et aux administrateurs de gérer l'ensemble du système.
 
 ## Fonctionnalités
 
@@ -46,7 +49,7 @@ git clone https://github.com/piripit/MDS.git
 
 2. Configurer la base de données :
 
-   - Créer une base de données MySQL nommée "MDS"
+   - Créer une base de données MySQL nommée "gestion_classes"
    - Importer le fichier `sql/init_db.php`
    - Configurer les paramètres de connexion dans `config/config.php`
 
@@ -65,7 +68,7 @@ git clone https://github.com/piripit/MDS.git
 ## Structure du Projet
 
 ```
-MDS/
+Bienvenu Formation/
 ├── config/
 │   └── config.php
 ├── classes/
